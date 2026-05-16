@@ -171,12 +171,25 @@
             box-shadow: 0 0 10px #0c4
         }
 
+        /* ── Settings overlay: scrollable so tall content isn't clipped ── */
+        #ui-settings {
+            justify-content: flex-start !important;
+            align-items: center;
+            overflow-y: auto;
+            overflow-x: hidden;
+            padding: 16px 0 20px;
+        }
+
+        #ui-settings::-webkit-scrollbar { width: 6px; }
+        #ui-settings::-webkit-scrollbar-track { background: rgba(0,0,0,0.3); }
+        #ui-settings::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.15); border-radius: 3px; }
+
         /* ── Character preview cards ── */
         .char-grid {
             display: grid;
             grid-template-columns: repeat(4, 1fr);
-            gap: 10px;
-            margin-top: 8px;
+            gap: 7px;
+            margin-top: 6px;
         }
 
         .char-card {
@@ -186,7 +199,7 @@
             cursor: pointer;
             border: 1px solid rgba(255,255,255,0.1);
             background: rgba(0,0,0,0.45);
-            padding: 10px 4px 8px;
+            padding: 8px 4px 6px;
             transition: border-color 0.25s, box-shadow 0.25s, background 0.25s;
             user-select: none;
         }
@@ -210,14 +223,14 @@
         .char-card-name {
             font-size: 10px;
             letter-spacing: 1.5px;
-            margin-top: 7px;
+            margin-top: 5px;
             color: rgba(255,255,255,0.75);
         }
 
         .char-tier-label {
             font-size: 9px;
-            height: 14px;
-            margin-top: 3px;
+            height: 13px;
+            margin-top: 2px;
             color: rgba(200,220,255,0.45);
             letter-spacing: 1px;
             transition: color 0.4s;
@@ -393,10 +406,10 @@
         </div>
 
         <div id="ui-settings" class="ov hd" style="z-index: 200;">
-            <div class="pnl" style="width: 520px;">
+            <div class="pnl" style="width: 520px; padding: 14px; margin-bottom: 0;">
                 <div class="pnl-t" style="color: #0c4;">CONFIGURACIÓN</div>
-                <div style="margin: 20px 0;">
-                    <div style="font-size: 14px; opacity: 0.7; margin-bottom: 15px; letter-spacing: 1px;">ELEGIR PERSONAJE:</div>
+                <div style="margin: 10px 0 0;">
+                    <div style="font-size: 13px; opacity: 0.7; margin-bottom: 8px; letter-spacing: 1px;">ELEGIR PERSONAJE:</div>
                     <div class="char-grid">
                         <div class="char-card" data-char="CUBE" onclick="setChar('CUBE')">
                             <canvas class="char-cv"></canvas>
@@ -440,14 +453,14 @@
                         </div>
                     </div>
                 </div>
-                <div style="margin: 18px 0 10px; border-top: 1px solid rgba(255,255,255,0.08); padding-top: 16px; display:flex; align-items:center; justify-content:space-between;">
+                <div style="margin: 12px 0 8px; border-top: 1px solid rgba(255,255,255,0.08); padding-top: 12px; display:flex; align-items:center; justify-content:space-between;">
                     <div>
                         <div style="font-size:13px; letter-spacing:1px;">PANTALLA COMPLETA</div>
                         <div style="font-size:10px; opacity:0.45; margin-top:3px; letter-spacing:1px;">El juego ocupa toda la ventana</div>
                     </div>
                     <button id="btn-fullscreen" class="bp" onclick="toggleFullscreenMode()" style="min-width:64px;">OFF</button>
                 </div>
-                <button class="bl" style="width: 100%; margin-top: 10px;" onclick="hideSettings()">CERRAR</button>
+                <button class="bl" style="width: 100%; margin-top: 8px;" onclick="hideSettings()">CERRAR</button>
             </div>
         </div>
 

@@ -14,8 +14,8 @@ const CHARS = [
 const TIER_LABELS   = ['BASE', '✦ TIER I', '✦✦ TIER II', '✦✦✦ TIER III', '⚡ EPIC ⚡'];
 const TIER_COLORS   = ['rgba(200,220,255,0.45)', '#7df', '#7df', '#fa0', '#ff7700'];
 const TIER_HOLD_MS  = [1100, 900, 900, 900, 0];   // ms each tier is shown (0 = hold forever)
-const CV  = 84;   // canvas size px
-const PSZ = 40;   // character draw size
+const CV  = 72;   // canvas size px
+const PSZ = 34;   // character draw size
 
 const state = {};  // keyed by charId
 
