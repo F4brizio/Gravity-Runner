@@ -193,6 +193,7 @@ function resetGame() {
     state.energyMult = 1.0; state.smoothEnergy = 0;
     state.lastBeatEnergy = 0; state.beatCooldown = 0; state.beatFlash = 0;
     state.dynamicGap = C.GAP;
+    state.lastTier = 0; state.tierMsg = { text: '', sub: '', t: 0, tier: 0 };
 }
 
 // Expose to HTML onclick handlers
