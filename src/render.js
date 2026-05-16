@@ -1,4 +1,4 @@
-import { C, GS } from './constants.js';
+import { C, GS, getStreakTier } from './constants.js';
 import { state } from './state.js';
 import { Sfx } from './audio.js';
 import { mkDust } from './physics.js';
@@ -100,21 +100,49 @@ function rBlocks() {
 
 function rPlayer() {
     const { pl } = state;
+    const tier = getStreakTier(state.sc);
+    const px = C.PX + C.PS / 2;
+    const py = pl.y + C.PS / 2;
 
+    // Trail — longer and brighter with tier
+    const trailBase = 0.15 + tier * 0.06;
+    const trailStep = trailBase / (pl.trail.length || 1);
     pl.trail.forEach((t, i) => {
-        let o = .25 - i * .05; if (o < 0) o = 0;
+        let o = trailBase - i * trailStep; if (o < 0) o = 0;
         cx.save();
         cx.translate(t.x + C.PS / 2, t.y + C.PS / 2);
         if (pl.grav === 'UP') cx.scale(1, -1);
-        cx.fillStyle = `hsla(${state.curHue}, 100%, 50%, ${o})`;
+        cx.fillStyle = `hsla(${state.curHue}, 100%, ${50 + tier * 10}%, ${o})`;
         cx.fillRect(-C.PS / 2, -C.PS / 2, C.PS, C.PS);
         cx.restore();
     });
 
+    // Tier 2+: pulsing aura ring (world coords, behind character)
+    if (tier >= 2) {
+        const pulse = 1 + Math.sin(state.et * 0.012) * 0.2;
+        const hue2 = (state.curHue + 40) % 360;
+        cx.save();
+        cx.strokeStyle = `hsla(${hue2}, 100%, 75%, 0.55)`;
+        cx.lineWidth = 2 + tier;
+        cx.shadowColor = `hsla(${hue2}, 100%, 75%, 1)`;
+        cx.shadowBlur = 18;
+        cx.beginPath();
+        cx.arc(px, py, C.PS * 0.85 * pulse, 0, Math.PI * 2);
+        cx.stroke();
+        cx.restore();
+    }
+
+    // Player character
     cx.save();
-    cx.translate(C.PX + C.PS / 2, pl.y + C.PS / 2);
+    cx.translate(px, py);
     cx.scale(pl.sx, pl.sy);
     if (pl.grav === 'UP') cx.scale(1, -1);
+
+    // Tier 1+: glow on character
+    if (tier >= 1) {
+        cx.shadowColor = `hsla(${state.curHue}, 100%, 70%, 1)`;
+        cx.shadowBlur = 8 + tier * 6;
+    }
 
     let drawState = 'RUN';
     if (state.flash > 0) drawState = 'CRASH';
@@ -132,6 +160,60 @@ function rPlayer() {
     cx.restore();
     cx.globalAlpha = 1;
     cx.shadowBlur = 0;
+
+    // Tier 3: orbiting particles (world coords, in front)
+    if (tier >= 3) {
+        for (let i = 0; i < 4; i++) {
+            const angle = state.et * 0.005 + i * Math.PI / 2;
+            const orbitR = C.PS * 1.15;
+            const ox = px + Math.cos(angle) * orbitR;
+            const oy = py + Math.sin(angle) * orbitR;
+            cx.save();
+            const orbitHue = (state.curHue + i * 70) % 360;
+            cx.fillStyle = `hsla(${orbitHue}, 100%, 80%, 0.9)`;
+            cx.shadowColor = `hsla(${orbitHue}, 100%, 80%, 1)`;
+            cx.shadowBlur = 10;
+            cx.beginPath();
+            cx.arc(ox, oy, 4, 0, Math.PI * 2);
+            cx.fill();
+            cx.restore();
+        }
+        cx.shadowBlur = 0;
+    }
+}
+
+function rVolToast() {
+    if (state.volDisplayT <= 0) return;
+    const alpha = Math.min(1, state.volDisplayT / 400);
+    const pct = Math.round(state.volume * 100);
+    const barW = 100;
+
+    cx.save();
+    cx.globalAlpha = alpha;
+    const tx = C.W / 2 - 70, ty = 12;
+    cx.fillStyle = 'rgba(0,0,0,0.75)';
+    cx.fillRect(tx, ty, 140, 38);
+    cx.strokeStyle = `hsla(${state.curHue}, 80%, 60%, 0.5)`;
+    cx.lineWidth = 1;
+    cx.strokeRect(tx, ty, 140, 38);
+
+    cx.fillStyle = 'rgba(255,255,255,0.5)';
+    cx.font = '9px "Space Mono",monospace';
+    cx.textAlign = 'left';
+    cx.textBaseline = 'top';
+    cx.fillText('VOLUMEN', tx + 10, ty + 8);
+
+    cx.fillStyle = 'rgba(255,255,255,0.15)';
+    cx.fillRect(tx + 10, ty + 24, barW, 7);
+    cx.fillStyle = `hsla(${state.curHue}, 100%, 60%, 1)`;
+    cx.fillRect(tx + 10, ty + 24, barW * state.volume, 7);
+
+    cx.fillStyle = '#fff';
+    cx.font = 'bold 11px "Space Mono",monospace';
+    cx.textAlign = 'right';
+    cx.textBaseline = 'top';
+    cx.fillText(pct + '%', tx + 130, ty + 8);
+    cx.restore();
 }
 
 function rParts() {
@@ -251,4 +333,5 @@ export function render() {
         cx.fillStyle = g; cx.fillRect(0, 0, C.W, C.H);
     }
     rScAnim(); rCountdown();
+    rVolToast();
 }

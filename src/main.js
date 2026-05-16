@@ -49,6 +49,7 @@ function loop(now) {
         }
 
         if (state.beatFlash > 0) state.beatFlash -= dt * 0.002;
+        if (state.volDisplayT > 0) state.volDisplayT = Math.max(0, state.volDisplayT - dt);
 
         if (state.gs === GS.COUNTDOWN || state.gs === GS.PLAY) state.et += dt;
 

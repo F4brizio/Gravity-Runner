@@ -45,4 +45,6 @@ export const state = {
     beatCooldown: 0,
     beatFlash: 0,
     dynamicGap: C.GAP,
+    volume: 1.0,
+    volDisplayT: 0,
 };

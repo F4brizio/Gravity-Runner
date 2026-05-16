@@ -1,4 +1,4 @@
-import { C, GS } from './constants.js';
+import { C, GS, getStreakTier } from './constants.js';
 import { state } from './state.js';
 import { Sfx } from './audio.js';
 import { keys } from './input.js';
@@ -186,7 +186,8 @@ export function updPlayer(dt) {
         pl.tt -= dt;
         if (pl.tt <= 0) {
             pl.trail.unshift({ x: C.PX, y: pl.y });
-            if (pl.trail.length > 4) pl.trail.pop();
+            const maxTrail = 4 + getStreakTier(state.sc) * 3;
+            if (pl.trail.length > maxTrail) pl.trail.pop();
             pl.tt = 40;
         }
     }
