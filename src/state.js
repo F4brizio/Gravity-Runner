@@ -47,4 +47,6 @@ export const state = {
     dynamicGap: C.GAP,
     volume: 1.0,
     volDisplayT: 0,
+    lastTier: 0,
+    tierMsg: { text: '', sub: '', t: 0, tier: 0 },
 };
