@@ -20,8 +20,9 @@ export const Sfx = {
         this.aud.src = URL.createObjectURL(file);
     },
 
-    playMusic() {
+    playMusic(volume = 0.2) {
         this.init();
+        this.aud.volume = volume;
         this.aud.play().catch(e => {
             if (e.name !== 'AbortError') console.error('Error playing music:', e);
         });
