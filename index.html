@@ -437,7 +437,7 @@
 
     <script>
         const C = {
-            W: 900, H: 500, PX: 150, PS: 32, GAP: 160, SPD: 200, MBH: 30, GS: 0.09, GM: 18, DUR: 60,
+            W: 900, H: 500, PX: 150, PS: 32, GAP: 96, SPD: 200, MBH: 30, GS: 0.09, GM: 18, DUR: 60,
             COL: { BG: '#020205', PL: '#e0faff', BB: 'rgba(10, 40, 100, 0.6)', BL: '#00f0ff', BS: 'rgba(0, 240, 255, 0.3)', ST: '#fff', GR: 'rgba(0, 240, 255, 0.05)' }
         };
         const GS = { MENU: 0, TAP: 1, SAVE: 2, PLAY: 3, OVER: 4, COUNTDOWN: 5 };
@@ -763,7 +763,7 @@
             updateHUD();
         }
 
-        const STEP_Y = 60;
+        const STEP_Y = 50;
         const LEVELS = (function () {
             let mid = C.H / 2 - C.GAP / 2;
             let arr = [];
@@ -809,18 +809,18 @@
                 // Decide pattern/logic
                 if (patternCount <= 0) {
                     const r = Math.random();
-                    if (r < 0.3) { 
+                    if (r < 0.15) { 
                         patternType = 'ESCALERA_UP'; 
-                        patternCount = 3 + Math.floor(Math.random() * 4);
-                    } else if (r < 0.6) { 
+                        patternCount = 2 + Math.floor(Math.random() * 3);
+                    } else if (r < 0.30) { 
                         patternType = 'ESCALERA_DOWN'; 
-                        patternCount = 3 + Math.floor(Math.random() * 4);
-                    } else if (r < 0.8) { 
+                        patternCount = 2 + Math.floor(Math.random() * 3);
+                    } else if (r < 0.65) { 
                         patternType = 'ZIGZAG'; 
                         patternCount = 4 + Math.floor(Math.random() * 4);
                     } else { 
                         patternType = 'MUSIC_RANDOM'; 
-                        patternCount = 2 + Math.floor(Math.random() * 3);
+                        patternCount = 1 + Math.floor(Math.random() * 2); // Shorter to avoid flat sections
                     }
                 }
 
@@ -830,11 +830,15 @@
                 } else if (patternType === 'ESCALERA_DOWN') {
                     targetGY = curGY + STEP_Y;
                 } else if (patternType === 'ZIGZAG') {
+                    // Fast alternation for better rhythm
                     targetGY = (i % 2 === 0) ? LEVELS[1] : LEVELS[5];
                 } else {
                     if (hasProfile) {
                         let pidx = (countdownBlocks + i) % profile.length;
-                        targetGY = LEVELS[Math.max(0, Math.min(LEVELS.length - 1, Math.round(profile[pidx] * (LEVELS.length - 1))))];
+                        let musicIdx = Math.round(profile[pidx] * (LEVELS.length - 1));
+                        // Add jitter to avoid long flat sections in music
+                        if (Math.random() < 0.3) musicIdx = Math.max(0, Math.min(LEVELS.length-1, musicIdx + (Math.random() > 0.5 ? 1 : -1)));
+                        targetGY = LEVELS[musicIdx];
                     } else {
                         targetGY = LEVELS[Math.floor(Math.random() * LEVELS.length)];
                     }
@@ -847,13 +851,8 @@
                 if (curGY < targetGY) curGY = Math.min(targetGY, curGY + stepAmount);
                 else if (curGY > targetGY) curGY = Math.max(targetGY, curGY - stepAmount);
 
-                // Add variety to the GAP size too
-                let bGap = C.GAP;
-                if (patternType === 'ZIGZAG') bGap = C.GAP + 20; // Easier for fast moves
-                else if (Math.random() < 0.2) bGap = C.GAP - 30; // Challenge
-                else if (Math.random() < 0.2) bGap = C.GAP + 40; // Breathing room
-
-                addBlock(curX, bw, curGY, false, bGap); 
+                // Add block with the new fixed tight gap
+                addBlock(curX, bw, curGY, false, C.GAP); 
                 
                 curX += bw;
                 patternCount--;
