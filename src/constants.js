@@ -13,3 +13,11 @@ export const LEVELS = (() => {
     for (let i = -3; i <= 3; i++) arr.push(Math.round(mid + i * STEP_Y));
     return arr;
 })();
+
+// Streak tiers: 0=normal, 1=glow(10+), 2=aura(25+), 3=epic(50+)
+export function getStreakTier(sc) {
+    if (sc >= 50) return 3;
+    if (sc >= 25) return 2;
+    if (sc >= 10) return 1;
+    return 0;
+}
