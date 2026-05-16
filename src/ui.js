@@ -143,6 +143,10 @@ export function togglePause() {
     }
 }
 
+export function retryGame() {
+    if (state.curSong) startPlay(state.curSong);
+}
+
 export function setChar(c) {
     state.pl.char = c;
     localStorage.setItem('gr_char', c);
@@ -248,3 +252,4 @@ window.setChar = setChar;
 window.detectBPMFromInput = detectBPMFromInput;
 window.adjBPM = adjBPM;
 window.toggleFullscreenMode = toggleFullscreenMode;
+window.retryGame = retryGame;
