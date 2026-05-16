@@ -779,60 +779,90 @@
             let targetGY = LEVELS[3];
             let stepAmount = STEP_Y;
 
-            function addBlock(x, w, gy, noScore = false) {
-                blocks.push({ x, w, gy, gap: C.GAP, passed: false, hit: false, scored: false, sndTouch: false, noScore });
+            function addBlock(x, w, gy, noScore = false, gap = C.GAP) {
+                blocks.push({ x, w, gy, gap, passed: false, hit: false, scored: false, sndTouch: false, noScore });
             }
 
             const spd = getSpeed();
             const blockTime = (bw / spd) * 1000;
             const countdownBlocks = Math.ceil(3500 / blockTime);
 
+            // 1. Countdown Phase
             for (let i = 0; i < countdownBlocks; i++) {
-                addBlock(curX, bw, curGY, true); // No score during countdown
+                addBlock(curX, bw, curGY, true); 
                 curX += bw;
             }
 
-            // 2. Procedural generation — music-profile driven or fallback zig-zag
+            // 2. Procedural Generation — Improved Variety & Patterns
             let actionDuration = Math.max(0, duration - 10);
             let numActionBlocks = Math.ceil((actionDuration * song.bpm) / 60);
             let blocksToTarget = 0;
 
             const profile = song.beatProfile;
             const hasProfile = Array.isArray(profile) && profile.length > 0;
-            const profileCenter = Math.floor(LEVELS.length / 2); // index 3
+            const profileCenter = Math.floor(LEVELS.length / 2); 
+
+            let patternType = 'NONE';
+            let patternCount = 0;
 
             for (let i = 0; i < numActionBlocks; i++) {
-                if (hasProfile) {
-                    // Map beat RMS energy → vertical level: high energy = extremes, low = center
-                    let pidx = (countdownBlocks + i) % profile.length;
-                    let energy = profile[pidx];
-                    let dist = Math.round(energy * profileCenter);
-                    let dir = (i % 2 === 0) ? 1 : -1;
-                    targetGY = LEVELS[Math.max(0, Math.min(LEVELS.length - 1, profileCenter + dir * dist))];
-                } else {
-                    if (blocksToTarget <= 0) {
-                        let nextTarget;
-                        do { nextTarget = LEVELS[Math.floor(Math.random() * LEVELS.length)]; }
-                        while (Math.abs(nextTarget - curGY) < STEP_Y * 2);
-                        targetGY = nextTarget;
-                        blocksToTarget = 1 + Math.floor(Math.random() * 2);
+                // Decide pattern/logic
+                if (patternCount <= 0) {
+                    const r = Math.random();
+                    if (r < 0.3) { 
+                        patternType = 'ESCALERA_UP'; 
+                        patternCount = 3 + Math.floor(Math.random() * 4);
+                    } else if (r < 0.6) { 
+                        patternType = 'ESCALERA_DOWN'; 
+                        patternCount = 3 + Math.floor(Math.random() * 4);
+                    } else if (r < 0.8) { 
+                        patternType = 'ZIGZAG'; 
+                        patternCount = 4 + Math.floor(Math.random() * 4);
+                    } else { 
+                        patternType = 'MUSIC_RANDOM'; 
+                        patternCount = 2 + Math.floor(Math.random() * 3);
                     }
-                    blocksToTarget--;
                 }
 
-                // Standard staircase movement ONLY (No instant jumps)
+                // Update targetGY based on pattern
+                if (patternType === 'ESCALERA_UP') {
+                    targetGY = curGY - STEP_Y;
+                } else if (patternType === 'ESCALERA_DOWN') {
+                    targetGY = curGY + STEP_Y;
+                } else if (patternType === 'ZIGZAG') {
+                    targetGY = (i % 2 === 0) ? LEVELS[1] : LEVELS[5];
+                } else {
+                    if (hasProfile) {
+                        let pidx = (countdownBlocks + i) % profile.length;
+                        targetGY = LEVELS[Math.max(0, Math.min(LEVELS.length - 1, Math.round(profile[pidx] * (LEVELS.length - 1))))];
+                    } else {
+                        targetGY = LEVELS[Math.floor(Math.random() * LEVELS.length)];
+                    }
+                }
+
+                // Clamp targetGY to LEVELS
+                targetGY = Math.max(LEVELS[0], Math.min(LEVELS[LEVELS.length - 1], targetGY));
+
+                // Smooth movement towards targetGY (Staircase)
                 if (curGY < targetGY) curGY = Math.min(targetGY, curGY + stepAmount);
                 else if (curGY > targetGY) curGY = Math.max(targetGY, curGY - stepAmount);
 
-                addBlock(curX, bw, curGY);
+                // Add variety to the GAP size too
+                let bGap = C.GAP;
+                if (patternType === 'ZIGZAG') bGap = C.GAP + 20; // Easier for fast moves
+                else if (Math.random() < 0.2) bGap = C.GAP - 30; // Challenge
+                else if (Math.random() < 0.2) bGap = C.GAP + 40; // Breathing room
+
+                addBlock(curX, bw, curGY, false, bGap); 
+                
                 curX += bw;
+                patternCount--;
             }
 
-            // 3. Outro Phase (Last 10 seconds: Linear and No Score)
+            // 3. Outro Phase (Linear and No Score)
             let outroBlocks = Math.ceil((10 * song.bpm) / 60);
             let midGY = LEVELS[3];
             for (let i = 0; i < outroBlocks; i++) {
-                // Smoothly return to middle for outro
                 if (curGY < midGY) curGY = Math.min(midGY, curGY + stepAmount);
                 else if (curGY > midGY) curGY = Math.max(midGY, curGY - stepAmount);
                 addBlock(curX, bw, curGY, true);
@@ -937,7 +967,7 @@
                     let pT = pl.y, pB = pl.y + C.PS;
                     let prevBlock = blocks.find(pb => pb !== b && pb.scored && pb.x <= C.PX && pb.x + pb.w > b.x - 5);
                     let sameHeight = prevBlock && Math.abs(prevBlock.gy - b.gy) < 2;
-                    let inGap = sameHeight || (pT >= b.gy - 1 && pB <= b.gy + dynamicGap + 1);
+                    let inGap = sameHeight || (pT >= b.gy - 1 && pB <= b.gy + b.gap + 1);
 
                     if (inGap) {
                         if (gs === GS.PLAY && !b.noScore) {
@@ -950,7 +980,7 @@
                         Sfx.play('crash');
                         b.hit = true; sc = 0; flash = 0.6; mkParts(b.x, pl.y + C.PS / 2);
                         trigSc(0); // SHOW 0 ON HIT
-                        if (pl.y < b.gy) pl.y = b.gy + 1; else if (pl.y + C.PS > b.gy + dynamicGap) pl.y = b.gy + dynamicGap - C.PS - 1;
+                        if (pl.y < b.gy) pl.y = b.gy + 1; else if (pl.y + C.PS > b.gy + b.gap) pl.y = b.gy + b.gap - C.PS - 1;
                         pl.vy = 0; pl.sx = 1.5; pl.sy = 0.5; pl.sq = 120;
                     }
                 }
@@ -969,7 +999,7 @@
             for (let b of blocks) {
                 if (b.x <= pR && b.x + b.w > pL) {
                     let olvTop = b.gy - pT;
-                    let olvBot = pB - (b.gy + dynamicGap);
+                    let olvBot = pB - (b.gy + b.gap);
                     if (olvTop > 0) {
                         if (olvTop > HALF) {
                             Sfx.play('crash');
@@ -995,13 +1025,13 @@
                                 if (gs === GS.PLAY && !b.noScore) { trigSc(0); totalBl++; }
                                 b.scored = true;
                             }
-                            flash = 0.6; mkParts(C.PX + C.PS / 2, b.gy + dynamicGap);
+                            flash = 0.6; mkParts(C.PX + C.PS / 2, b.gy + b.gap);
                             pl.sx = 1.5; pl.sy = 0.5; pl.sq = 130;
-                        } else if (pl.vy > 2 && (b.gy + dynamicGap !== pl.lastGY || pl.lastSide !== 'BOT')) {
-                            flashW = 0.5; flashPos = { x: C.PX + C.PS / 2, y: b.gy + dynamicGap };
-                            pl.lastGY = b.gy + dynamicGap; pl.lastSide = 'BOT';
+                        } else if (pl.vy > 2 && (b.gy + b.gap !== pl.lastGY || pl.lastSide !== 'BOT')) {
+                            flashW = 0.5; flashPos = { x: C.PX + C.PS / 2, y: b.gy + b.gap };
+                            pl.lastGY = b.gy + b.gap; pl.lastSide = 'BOT';
                         }
-                        pl.y = b.gy + dynamicGap - C.PS - 1;
+                        pl.y = b.gy + b.gap - C.PS - 1;
                         pl.vy = 0; pT = pl.y; pB = pl.y + C.PS;
                         if (pl.grav === 'DOWN') pl.onSurface = true;
                     }
@@ -1080,7 +1110,7 @@
 
                 let rx = b.x + b.w;
                 let drawGy = b.gy * growth;
-                let targetBh = C.H - (b.gy + dynamicGap);
+                let targetBh = C.H - (b.gy + b.gap);
                 let drawBh = targetBh * growth;
                 // TOP BLOCK
                 let gTop = cx.createLinearGradient(b.x, 0, b.x, drawGy);
@@ -1112,10 +1142,10 @@
                 // Friction/Dust Effect
                 if (gs === GS.PLAY || gs === GS.COUNTDOWN) {
                     let isTouchingTop = (b.x <= C.PX + C.PS && b.x + b.w >= C.PX) && (pl.y <= b.gy + 1.5 && pl.grav === 'UP');
-                    let isTouchingBot = (b.x <= C.PX + C.PS && b.x + b.w >= C.PX) && (pl.y + C.PS >= b.gy + dynamicGap - 1.5 && pl.grav === 'DOWN');
+                    let isTouchingBot = (b.x <= C.PX + C.PS && b.x + b.w >= C.PX) && (pl.y + C.PS >= b.gy + b.gap - 1.5 && pl.grav === 'DOWN');
 
                     if (isTouchingTop || isTouchingBot) {
-                        let edgeY = isTouchingTop ? b.gy : b.gy + dynamicGap;
+                        let edgeY = isTouchingTop ? b.gy : b.gy + b.gap;
                         cx.save();
                         cx.shadowColor = "#fff"; cx.shadowBlur = 15;
                         cx.fillStyle = "rgba(255,255,255,0.7)";
