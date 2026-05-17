@@ -7,7 +7,17 @@ export function getSpeed() {
     return (bw * bpm) / 60;
 }
 
-export function genObstacles(song, duration) {
+function mulberry32(seed) {
+    return () => {
+        seed |= 0; seed = seed + 0x6D2B79F5 | 0;
+        let t = Math.imul(seed ^ seed >>> 15, 1 | seed);
+        t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t;
+        return ((t ^ t >>> 14) >>> 0) / 4294967296;
+    };
+}
+
+export function genObstacles(song, duration, seed = Date.now()) {
+    const rng = mulberry32(seed);
     state.blocks = [];
     const bw = C.PS * 5;
     let curX = 0;
@@ -33,26 +43,25 @@ export function genObstacles(song, duration) {
 
     const profile = song.beatProfile;
     const hasProfile = Array.isArray(profile) && profile.length > 0;
-    const profileCenter = Math.floor(LEVELS.length / 2);
 
     let patternType = 'NONE';
     let patternCount = 0;
 
     for (let i = 0; i < numActionBlocks; i++) {
         if (patternCount <= 0) {
-            const r = Math.random();
+            const r = rng();
             if (r < 0.15) {
                 patternType = 'ESCALERA_UP';
-                patternCount = 2 + Math.floor(Math.random() * 3);
+                patternCount = 2 + Math.floor(rng() * 3);
             } else if (r < 0.30) {
                 patternType = 'ESCALERA_DOWN';
-                patternCount = 2 + Math.floor(Math.random() * 3);
+                patternCount = 2 + Math.floor(rng() * 3);
             } else if (r < 0.65) {
                 patternType = 'ZIGZAG';
-                patternCount = 4 + Math.floor(Math.random() * 4);
+                patternCount = 4 + Math.floor(rng() * 4);
             } else {
                 patternType = 'MUSIC_RANDOM';
-                patternCount = 1 + Math.floor(Math.random() * 2);
+                patternCount = 1 + Math.floor(rng() * 2);
             }
         }
 
@@ -66,10 +75,10 @@ export function genObstacles(song, duration) {
             if (hasProfile) {
                 let pidx = (countdownBlocks + i) % profile.length;
                 let musicIdx = Math.round(profile[pidx] * (LEVELS.length - 1));
-                if (Math.random() < 0.3) musicIdx = Math.max(0, Math.min(LEVELS.length - 1, musicIdx + (Math.random() > 0.5 ? 1 : -1)));
+                if (rng() < 0.3) musicIdx = Math.max(0, Math.min(LEVELS.length - 1, musicIdx + (rng() > 0.5 ? 1 : -1)));
                 targetGY = LEVELS[musicIdx];
             } else {
-                targetGY = LEVELS[Math.floor(Math.random() * LEVELS.length)];
+                targetGY = LEVELS[Math.floor(rng() * LEVELS.length)];
             }
         }
 

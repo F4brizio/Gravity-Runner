@@ -5,6 +5,7 @@ import { setupInput } from './input.js';
 import { updBlocks, checkCol, updPlayer, updateHUD } from './physics.js';
 import { render } from './render.js';
 import { showMenu, showGameOver, togglePause } from './ui.js';
+import { Net } from './network.js';
 
 // Init stars
 for (let i = 0; i < 50; i++) {
@@ -74,8 +75,17 @@ function loop(now) {
                 state.lastTier = curTier;
             }
 
+            // Multiplayer: send position at 10 Hz
+            if (state.isOnline) {
+                state.netTimer += dt;
+                if (state.netTimer >= 100) { Net.sendUpdate(); state.netTimer = 0; }
+            }
+
             const audioEnded = Sfx.aud && Sfx.aud.src && Sfx.aud.ended;
-            if (audioEnded || state.blocks.length === 0) showGameOver();
+            if (audioEnded || state.blocks.length === 0) {
+                if (state.isOnline) Net.sendGameOver();
+                showGameOver();
+            }
         } else if (state.gs === GS.MENU) {
             updBlocks(dt);
         }

@@ -49,4 +49,8 @@ export const state = {
     volDisplayT: 0,
     lastTier: 0,
     tierMsg: { text: '', sub: '', t: 0, tier: 0 },
+    opponent: null,
+    roomCode: null,
+    isOnline: false,
+    netTimer: 0,
 };

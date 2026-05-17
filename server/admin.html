@@ -1,0 +1,385 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Gravity Runner — Admin</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { background: #020205; color: #e0faff; font-family: 'Courier New', monospace; min-height: 100vh; }
+  header { background: #0a0a1a; border-bottom: 1px solid #0cf3; padding: 14px 24px; display: flex; align-items: center; gap: 16px; }
+  header h1 { color: #0cf; font-size: 18px; letter-spacing: 2px; }
+  #auth-badge { font-size: 12px; color: #0f9; margin-left: auto; }
+  nav { display: flex; gap: 2px; background: #0a0a1a; border-bottom: 1px solid #0cf2; padding: 0 24px; }
+  nav button { background: none; border: none; color: #669; padding: 12px 20px; cursor: pointer; font-family: inherit; font-size: 13px; letter-spacing: 1px; border-bottom: 2px solid transparent; transition: color .2s, border-color .2s; }
+  nav button:hover { color: #adf; }
+  nav button.active { color: #0cf; border-bottom-color: #0cf; }
+  .tab { display: none; padding: 28px 24px; max-width: 1100px; }
+  .tab.active { display: block; }
+  h2 { color: #0cf; margin-bottom: 20px; font-size: 14px; letter-spacing: 2px; text-transform: uppercase; }
+  table { width: 100%; border-collapse: collapse; font-size: 13px; }
+  th { text-align: left; color: #669; padding: 8px 12px; border-bottom: 1px solid #0cf2; font-weight: normal; letter-spacing: 1px; }
+  td { padding: 10px 12px; border-bottom: 1px solid #0cf1; }
+  tr:hover td { background: #0cf08; }
+  .btn { background: none; border: 1px solid #0cf; color: #0cf; padding: 5px 12px; cursor: pointer; font-family: inherit; font-size: 12px; border-radius: 3px; transition: background .2s; }
+  .btn:hover { background: #0cf2; }
+  .btn.red { border-color: #f44; color: #f44; }
+  .btn.red:hover { background: #f442; }
+  .btn.green { border-color: #0f9; color: #0f9; }
+  .btn.green:hover { background: #0f92; }
+  .btn.lg { padding: 10px 24px; font-size: 14px; }
+  input, select { background: #0a0a1a; border: 1px solid #0cf4; color: #e0faff; padding: 8px 12px; font-family: inherit; font-size: 13px; border-radius: 3px; outline: none; }
+  input:focus, select:focus { border-color: #0cf; }
+  .row { display: flex; gap: 12px; align-items: center; margin-bottom: 14px; flex-wrap: wrap; }
+  label { color: #669; font-size: 12px; letter-spacing: 1px; display: block; margin-bottom: 4px; }
+  .field { display: flex; flex-direction: column; }
+  #drop-zone { border: 2px dashed #0cf4; border-radius: 6px; padding: 40px; text-align: center; color: #669; cursor: pointer; transition: border-color .2s, color .2s; margin-bottom: 20px; }
+  #drop-zone.over { border-color: #0cf; color: #0cf; }
+  #progress-bar { width: 100%; height: 4px; background: #0cf2; border-radius: 2px; overflow: hidden; display: none; margin-top: 12px; }
+  #progress-fill { height: 100%; background: #0cf; width: 0; transition: width .3s; }
+  .toast { position: fixed; bottom: 24px; right: 24px; background: #0a0a1a; border: 1px solid #0cf; color: #0cf; padding: 12px 20px; border-radius: 4px; font-size: 13px; opacity: 0; transition: opacity .3s; pointer-events: none; z-index: 100; }
+  .toast.err { border-color: #f44; color: #f44; }
+  .badge { display: inline-block; background: #0cf2; color: #0cf; padding: 2px 8px; border-radius: 10px; font-size: 11px; }
+  #login-screen { display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: 80vh; gap: 16px; }
+  #login-screen h2 { font-size: 20px; }
+  #login-screen input { width: 320px; font-size: 15px; }
+  audio { width: 180px; }
+  .toggle { position: relative; display: inline-block; width: 44px; height: 24px; }
+  .toggle input { opacity: 0; width: 0; height: 0; }
+  .slider { position: absolute; inset: 0; background: #0cf2; border-radius: 12px; cursor: pointer; transition: background .2s; }
+  .slider::before { content: ''; position: absolute; width: 18px; height: 18px; left: 3px; top: 3px; background: #669; border-radius: 50%; transition: transform .2s, background .2s; }
+  .toggle input:checked + .slider { background: #0cf4; }
+  .toggle input:checked + .slider::before { transform: translateX(20px); background: #0cf; }
+</style>
+</head>
+<body>
+
+<div id="login-screen">
+  <h2>GRAVITY RUNNER ADMIN</h2>
+  <div class="field">
+    <label>ADMIN TOKEN</label>
+    <input type="password" id="token-input" placeholder="Introduce el token" />
+  </div>
+  <button class="btn lg green" onclick="doLogin()">ENTRAR</button>
+</div>
+
+<div id="app" style="display:none">
+  <header>
+    <h1>⬡ GRAVITY RUNNER ADMIN</h1>
+    <span id="auth-badge">● Autenticado</span>
+    <button class="btn red" onclick="logout()" style="margin-left:8px">SALIR</button>
+  </header>
+  <nav>
+    <button class="active" onclick="switchTab('songs')">CANCIONES</button>
+    <button onclick="switchTab('upload')">SUBIR</button>
+    <button onclick="switchTab('config')">CONFIG</button>
+    <button onclick="switchTab('rooms')">SALAS ACTIVAS</button>
+  </nav>
+
+  <!-- SONGS -->
+  <div id="tab-songs" class="tab active">
+    <h2>Biblioteca de Canciones</h2>
+    <table>
+      <thead><tr><th>NOMBRE</th><th>BPM</th><th>DURACIÓN</th><th>TAMAÑO</th><th>ACCIONES</th></tr></thead>
+      <tbody id="songs-tbody"></tbody>
+    </table>
+  </div>
+
+  <!-- UPLOAD -->
+  <div id="tab-upload" class="tab">
+    <h2>Subir Canción</h2>
+    <div id="drop-zone" onclick="document.getElementById('file-input').click()">
+      <div style="font-size:32px;margin-bottom:8px">♫</div>
+      <div>Arrastra un MP3 aquí o haz clic para seleccionar</div>
+      <div style="font-size:11px;margin-top:6px;color:#446">.mp3 únicamente</div>
+    </div>
+    <input type="file" id="file-input" accept=".mp3" style="display:none" onchange="onFileSelected(this)">
+    <div class="row">
+      <div class="field"><label>NOMBRE</label><input type="text" id="song-name" placeholder="Nombre de la canción"></div>
+      <div class="field"><label>BPM</label><input type="number" id="song-bpm" placeholder="120" min="40" max="300" style="width:90px"></div>
+      <button class="btn" onclick="detectBPM()">⚙ Auto BPM</button>
+    </div>
+    <div id="progress-bar"><div id="progress-fill"></div></div>
+    <button class="btn lg green" style="margin-top:16px" onclick="uploadSong()">↑ SUBIR Y OPTIMIZAR</button>
+    <div id="upload-status" style="margin-top:12px;color:#669;font-size:12px"></div>
+  </div>
+
+  <!-- CONFIG -->
+  <div id="tab-config" class="tab">
+    <h2>Configuración de Streaming</h2>
+    <div style="display:flex;flex-direction:column;gap:20px;max-width:420px">
+      <div class="field">
+        <label>BITRATE (kbps)</label>
+        <select id="cfg-bitrate">
+          <option value="64">64 kbps — mínimo</option>
+          <option value="128" selected>128 kbps — recomendado</option>
+          <option value="192">192 kbps — alta calidad</option>
+        </select>
+      </div>
+      <div class="row" style="gap:16px;align-items:center">
+        <label style="margin:0">NORMALIZAR VOLUMEN (-14 LUFS)</label>
+        <label class="toggle"><input type="checkbox" id="cfg-normalize" checked><span class="slider"></span></label>
+      </div>
+      <div class="row" style="gap:16px;align-items:center">
+        <label style="margin:0">MEZCLA MONO (reduce tamaño ~50%)</label>
+        <label class="toggle"><input type="checkbox" id="cfg-mono"><span class="slider"></span></label>
+      </div>
+      <div style="display:flex;gap:12px;margin-top:8px">
+        <button class="btn lg green" onclick="saveConfig()">GUARDAR CONFIG</button>
+        <button class="btn" onclick="reprocessAll()">↺ REPROCESAR TODO</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ROOMS -->
+  <div id="tab-rooms" class="tab">
+    <h2>Salas Activas <button class="btn" onclick="loadRooms()" style="font-size:11px;margin-left:10px">↺ Actualizar</button></h2>
+    <table>
+      <thead><tr><th>CÓDIGO</th><th>CANCIÓN</th><th>JUGADORES</th><th>TIEMPO</th></tr></thead>
+      <tbody id="rooms-tbody"></tbody>
+    </table>
+    <div id="rooms-empty" style="color:#669;font-size:13px;margin-top:16px;display:none">Sin salas activas</div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+let token = localStorage.getItem('gr_admin_token') || '';
+let uploadFile = null;
+let roomsInterval = null;
+
+const API = '';
+
+function api(path, opts = {}) {
+  return fetch(API + path, {
+    ...opts,
+    headers: { 'Authorization': 'Bearer ' + token, 'Content-Type': 'application/json', ...(opts.headers || {}) }
+  });
+}
+
+function toast(msg, err = false) {
+  const el = document.getElementById('toast');
+  el.textContent = msg;
+  el.className = 'toast' + (err ? ' err' : '');
+  el.style.opacity = 1;
+  setTimeout(() => el.style.opacity = 0, 3000);
+}
+
+function doLogin() {
+  token = document.getElementById('token-input').value.trim();
+  if (!token) return toast('Introduce el token', true);
+  api('/api/admin/songs').then(r => {
+    if (r.ok) {
+      localStorage.setItem('gr_admin_token', token);
+      document.getElementById('login-screen').style.display = 'none';
+      document.getElementById('app').style.display = 'block';
+      loadSongs();
+    } else {
+      toast('Token incorrecto', true);
+    }
+  }).catch(() => toast('No se puede conectar al servidor', true));
+}
+
+function logout() {
+  localStorage.removeItem('gr_admin_token');
+  location.reload();
+}
+
+function switchTab(name) {
+  document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+  document.querySelectorAll('nav button').forEach(b => b.classList.remove('active'));
+  document.getElementById('tab-' + name).classList.add('active');
+  event.currentTarget.classList.add('active');
+  if (name === 'rooms') { loadRooms(); if (!roomsInterval) roomsInterval = setInterval(loadRooms, 5000); }
+  else { clearInterval(roomsInterval); roomsInterval = null; }
+  if (name === 'config') loadConfig();
+}
+
+function fmt(sec) { return Math.floor(sec / 60) + ':' + String(sec % 60).padStart(2, '0'); }
+function fmtSize(b) { return b < 1024000 ? (b / 1024).toFixed(0) + ' KB' : (b / 1048576).toFixed(1) + ' MB'; }
+
+async function loadSongs() {
+  const r = await api('/api/admin/songs');
+  if (!r.ok) return toast('Error cargando canciones', true);
+  const songs = await r.json();
+  const tbody = document.getElementById('songs-tbody');
+  if (!songs.length) { tbody.innerHTML = '<tr><td colspan="5" style="color:#669;text-align:center">Sin canciones. Sube una.</td></tr>'; return; }
+  tbody.innerHTML = songs.map(s => `
+    <tr>
+      <td>${s.name}</td>
+      <td>${s.bpm}</td>
+      <td>${fmt(s.duration)}</td>
+      <td>${fmtSize(s.size || 0)}</td>
+      <td style="display:flex;gap:8px;align-items:center">
+        <audio src="/api/songs/${s.id}/stream" controls preload="none"></audio>
+        <button class="btn" onclick="reprocess('${s.id}')">↺</button>
+        <button class="btn red" onclick="deleteSong('${s.id}','${s.name}')">🗑</button>
+      </td>
+    </tr>`).join('');
+}
+
+async function deleteSong(id, name) {
+  if (!confirm(`Eliminar "${name}"?`)) return;
+  const r = await api('/api/admin/songs/' + id, { method: 'DELETE' });
+  if (r.ok) { toast('Eliminada'); loadSongs(); }
+  else toast('Error al eliminar', true);
+}
+
+async function reprocess(id) {
+  toast('Reprocesando…');
+  const r = await api('/api/admin/songs/' + id + '/reprocess');
+  if (r.ok) { toast('Reprocesado OK'); loadSongs(); }
+  else toast('Error al reprocesar', true);
+}
+
+// Upload
+const dropZone = document.getElementById('drop-zone');
+dropZone.addEventListener('dragover', e => { e.preventDefault(); dropZone.classList.add('over'); });
+dropZone.addEventListener('dragleave', () => dropZone.classList.remove('over'));
+dropZone.addEventListener('drop', e => {
+  e.preventDefault(); dropZone.classList.remove('over');
+  const f = e.dataTransfer.files[0];
+  if (f && f.name.endsWith('.mp3')) { uploadFile = f; dropZone.textContent = '✔ ' + f.name; }
+  else toast('Solo se aceptan archivos .mp3', true);
+});
+
+function onFileSelected(input) {
+  uploadFile = input.files[0];
+  if (uploadFile) dropZone.textContent = '✔ ' + uploadFile.name;
+}
+
+async function detectBPM() {
+  if (!uploadFile) return toast('Selecciona un MP3 primero', true);
+  toast('Analizando BPM…');
+  // Client-side BPM detection using Web Audio API
+  const buf = await uploadFile.arrayBuffer();
+  const ctx = new OfflineAudioContext(1, 44100 * 10, 44100);
+  const audio = await ctx.decodeAudioData(buf);
+  const src = ctx.createBufferSource();
+  src.buffer = audio;
+  const filter = ctx.createBiquadFilter();
+  filter.type = 'lowpass'; filter.frequency.value = 150;
+  src.connect(filter); filter.connect(ctx.destination); src.start(0);
+  const rendered = await ctx.startRendering();
+  const data = rendered.getChannelData(0);
+  let threshold = 0.75, peaks = [];
+  for (let i = 0; i < data.length; i++) if (data[i] > threshold) { peaks.push(i); i += 12000; }
+  if (peaks.length < 5) { threshold = 0.5; peaks = []; for (let i = 0; i < data.length; i++) if (data[i] > threshold) { peaks.push(i); i += 12000; } }
+  if (peaks.length < 2) { toast('No se pudo detectar BPM', true); return; }
+  const intervals = [];
+  for (let i = 1; i < peaks.length; i++) intervals.push(peaks[i] - peaks[i - 1]);
+  intervals.sort((a, b) => a - b);
+  const median = intervals[intervals.length / 2 | 0];
+  let bpm = Math.round(60 / (median / 44100));
+  while (bpm < 75) bpm *= 2;
+  while (bpm > 170) bpm /= 2;
+  document.getElementById('song-bpm').value = Math.round(bpm);
+  toast(`BPM detectado: ${Math.round(bpm)}`);
+}
+
+async function uploadSong() {
+  if (!uploadFile) return toast('Selecciona un MP3 primero', true);
+  const name = document.getElementById('song-name').value.trim();
+  const bpm = document.getElementById('song-bpm').value;
+  if (!name) return toast('Introduce el nombre', true);
+  if (!bpm) return toast('Introduce el BPM', true);
+
+  const formData = new FormData();
+  formData.append('file', uploadFile);
+  formData.append('name', name);
+  formData.append('bpm', bpm);
+
+  document.getElementById('progress-bar').style.display = 'block';
+  document.getElementById('upload-status').textContent = 'Subiendo y optimizando…';
+  document.getElementById('progress-fill').style.width = '40%';
+
+  const r = await fetch('/api/admin/songs', {
+    method: 'POST',
+    headers: { 'Authorization': 'Bearer ' + token },
+    body: formData,
+  });
+
+  document.getElementById('progress-fill').style.width = '100%';
+  setTimeout(() => document.getElementById('progress-bar').style.display = 'none', 800);
+
+  if (r.ok) {
+    const data = await r.json();
+    toast(`"${data.name}" subida OK`);
+    document.getElementById('upload-status').textContent = `✔ Subida: ${data.name} | ${Math.floor(data.duration/60)}:${String(data.duration%60).padStart(2,'0')} | ${fmtSize(data.size)}`;
+    dropZone.innerHTML = '<div style="font-size:32px;margin-bottom:8px">♫</div><div>Arrastra un MP3 aquí o haz clic para seleccionar</div><div style="font-size:11px;margin-top:6px;color:#446">.mp3 únicamente</div>';
+    uploadFile = null;
+    document.getElementById('song-name').value = '';
+    document.getElementById('song-bpm').value = '';
+  } else {
+    const err = await r.json().catch(() => ({ error: 'Error desconocido' }));
+    toast(err.error, true);
+    document.getElementById('upload-status').textContent = '✗ Error: ' + err.error;
+  }
+}
+
+async function loadConfig() {
+  const r = await api('/api/admin/config');
+  if (!r.ok) return;
+  const cfg = await r.json();
+  document.getElementById('cfg-bitrate').value = cfg.bitrate || 128;
+  document.getElementById('cfg-normalize').checked = cfg.normalize !== false;
+  document.getElementById('cfg-mono').checked = !!cfg.monoDownmix;
+}
+
+async function saveConfig() {
+  const cfg = {
+    bitrate: Number(document.getElementById('cfg-bitrate').value),
+    normalize: document.getElementById('cfg-normalize').checked,
+    targetLUFS: -14,
+    monoDownmix: document.getElementById('cfg-mono').checked,
+  };
+  const r = await api('/api/admin/config', { method: 'PATCH', body: JSON.stringify(cfg) });
+  if (r.ok) toast('Configuración guardada');
+  else toast('Error al guardar', true);
+}
+
+async function reprocessAll() {
+  if (!confirm('¿Reprocesar todas las canciones con la configuración actual?')) return;
+  const r = await api('/api/admin/songs');
+  if (!r.ok) return toast('Error', true);
+  const songs = await r.json();
+  toast(`Reprocesando ${songs.length} canciones…`);
+  for (const s of songs) await api('/api/admin/songs/' + s.id + '/reprocess');
+  toast('Reprocesado completo');
+  loadSongs();
+}
+
+async function loadRooms() {
+  const r = await api('/api/admin/rooms');
+  if (!r.ok) return;
+  const rooms = await r.json();
+  const tbody = document.getElementById('rooms-tbody');
+  const empty = document.getElementById('rooms-empty');
+  if (!rooms.length) { tbody.innerHTML = ''; empty.style.display = 'block'; return; }
+  empty.style.display = 'none';
+  tbody.innerHTML = rooms.map(r => `
+    <tr>
+      <td><span class="badge">${r.code}</span></td>
+      <td>${r.songId}</td>
+      <td>${r.host ? '● Host' : ''}${r.guest ? ' + ● Invitado' : ' (esperando)'}</td>
+      <td>${r.elapsed != null ? r.elapsed + 's' : '—'}</td>
+    </tr>`).join('');
+}
+
+// Auto-login if token stored
+if (token) {
+  api('/api/admin/songs').then(r => {
+    if (r.ok) {
+      document.getElementById('login-screen').style.display = 'none';
+      document.getElementById('app').style.display = 'block';
+      loadSongs();
+    } else {
+      localStorage.removeItem('gr_admin_token');
+      token = '';
+    }
+  }).catch(() => {});
+}
+</script>
+</body>
+</html>

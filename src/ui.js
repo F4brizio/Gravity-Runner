@@ -5,6 +5,9 @@ import { SM, MusicCache } from './storage.js';
 import { resetKeys } from './input.js';
 import { genObstacles } from './obstacles.js';
 import { updateHUD, fmtTime } from './physics.js';
+import { Net } from './network.js';
+
+const SERVER = import.meta.env.VITE_SERVER_URL || '';
 
 export function show(id) { const el = document.getElementById(id); if (el) el.classList.remove('hd'); }
 export function hide(id) { const el = document.getElementById(id); if (el) el.classList.add('hd'); }
@@ -17,44 +20,75 @@ export function showMenu() {
     resetKeys();
     Sfx.stopMusic();
     updateCharUI();
-    hide('ui-hud'); hide('ui-save'); hide('ui-go'); hide('ui-pause'); hide('ui-help'); show('ui-menu');
+    hide('ui-hud'); hide('ui-save'); hide('ui-go'); hide('ui-pause'); hide('ui-help'); hide('ui-room'); show('ui-menu');
 
     const el = document.getElementById('slist');
-    el.innerHTML = '';
-    const songs = SM.all();
-    if (!songs.length) {
-        el.innerHTML = '<div style="padding:15px;text-align:center;opacity:.5">No hay canciones. ¡Crea una!</div>';
-        return;
-    }
-    songs.forEach(s => {
+    el.innerHTML = '<div style="padding:15px;text-align:center;opacity:.4;font-size:12px">Cargando…</div>';
+
+    // Build the song list: local songs + server songs (when online)
+    const localSongs = SM.all();
+    const serverFetch = SERVER
+        ? fetch(`${SERVER}/api/songs`).then(r => r.ok ? r.json() : []).catch(() => [])
+        : Promise.resolve([]);
+
+    serverFetch.then(serverSongs => {
+        el.innerHTML = '';
+
+        // Server songs (shown first, always have 1v1 enabled)
+        serverSongs.forEach(s => renderSongRow(el, { ...s, _fromServer: true }, true));
+
+        // Local songs (not already on the server)
+        const serverIds = new Set(serverSongs.map(s => s.id));
+        localSongs.filter(s => !serverIds.has(s.id)).forEach(s => renderSongRow(el, s, false));
+
+        if (!serverSongs.length && !localSongs.length) {
+            el.innerHTML = '<div style="padding:15px;text-align:center;opacity:.5">No hay canciones. ¡Crea una!</div>';
+        }
+    });
+}
+
+function renderSongRow(el, s, isServer) {
         const d = document.createElement('div'); d.className = 'si';
 
         const info = document.createElement('div');
         info.style.textAlign = 'left';
-        info.innerHTML = `<div style="font-weight:bold">${s.name}</div>
-                          <div style="font-size:11px;opacity:.6">${s.bpm} BPM ${s.hasMusic ? '• ♫' : ''}</div>`;
+        const tag = isServer ? ' <span style="color:#0cf;font-size:10px">● SERVER</span>' : '';
+        info.innerHTML = `<div style="font-weight:bold">${s.name}${tag}</div>
+                          <div style="font-size:11px;opacity:.6">${s.bpm} BPM ${s.hasMusic || isServer ? '• ♫' : ''}</div>`;
 
         const score = document.createElement('div');
         score.className = 'si-score';
         const acc = s.bestAcc || 0;
         score.style.color = acc > 0 ? '#0c4' : 'rgba(255,255,255,.2)';
-        score.textContent = acc + '%';
+        score.textContent = acc > 0 ? acc + '%' : '';
 
         const actions = document.createElement('div');
         actions.style.display = 'flex';
         actions.style.gap = '5px';
         actions.style.justifyContent = 'flex-end';
 
-        const bp = document.createElement('button'); bp.className = 'bp'; bp.textContent = '▶ JUGAR';
-        bp.style.padding = '5px 10px'; bp.onclick = () => startPlay(s);
+        if (!isServer) {
+            // Local song: normal play button
+            const bp = document.createElement('button'); bp.className = 'bp'; bp.textContent = '▶ JUGAR';
+            bp.style.padding = '5px 10px'; bp.onclick = () => startPlay(s);
+            actions.appendChild(bp);
+        }
 
-        const bd = document.createElement('button'); bd.className = 'bd'; bd.textContent = '🗑';
-        bd.onclick = () => { if (confirm('¿Borrar canción?')) { SM.del(s.id); showMenu(); } };
+        const bm = document.createElement('button'); bm.className = 'bp'; bm.textContent = '⚡ 1v1';
+        bm.style.padding = '5px 10px'; bm.style.borderColor = '#0cf'; bm.style.color = '#0cf';
+        bm.title = isServer ? 'Jugar en multijugador 1v1' : (SERVER ? 'Solo disponible para canciones del servidor' : 'Requiere VITE_SERVER_URL');
+        bm.onclick = () => openMultiplayer(s);
+        if (!isServer) { bm.disabled = true; bm.style.opacity = '0.3'; }
+        actions.appendChild(bm);
 
-        actions.appendChild(bp); actions.appendChild(bd);
+        if (!isServer) {
+            const bd = document.createElement('button'); bd.className = 'bd'; bd.textContent = '🗑';
+            bd.onclick = () => { if (confirm('¿Borrar canción?')) { SM.del(s.id); showMenu(); } };
+            actions.appendChild(bd);
+        }
+
         d.appendChild(info); d.appendChild(score); d.appendChild(actions);
         el.appendChild(d);
-    });
 }
 
 export function startTap() {
@@ -92,24 +126,45 @@ export function startPlay(song) {
     hide('ui-menu'); hide('ui-go'); show('ui-hud');
     document.getElementById('h-bpm').textContent = '♫ ' + song.bpm + ' BPM';
 
-    const mFile = MusicCache[song.id];
-    if (mFile) {
-        Sfx.loadMusic(mFile);
-        const profilePromise = Sfx.analyzeBeatProfile(mFile, song.bpm);
-        Sfx.aud.onloadedmetadata = () => {
-            const dur = Sfx.aud.duration || 60;
-            genObstacles(song, dur);
+    const seed = song.seed || Date.now();
+
+    if (state.isOnline && SERVER && song.id) {
+        // Online mode: stream from server
+        Sfx.init();
+        if (Sfx.ctx && Sfx.ctx.state === 'suspended') Sfx.ctx.resume();
+        Sfx.aud.src = `${SERVER}/api/songs/${song.id}/stream`;
+        Sfx.aud.crossOrigin = 'anonymous';
+        const startOnline = () => {
+            const dur = Sfx.aud.duration || song.duration || 60;
+            genObstacles(song, dur, seed);
             Sfx.playMusic();
-            profilePromise.then(profile => {
-                if (profile.length > 0 && state.gs === GS.COUNTDOWN) {
-                    song.beatProfile = profile;
-                    genObstacles(song, dur);
-                }
-            });
         };
-        if (Sfx.aud.readyState >= 1) Sfx.aud.onloadedmetadata();
+        Sfx.aud.onloadedmetadata = startOnline;
+        Sfx.aud.onerror = () => {
+            // No audio — still generate obstacles so the game works
+            genObstacles(song, song.duration || 60, seed);
+        };
+        Sfx.aud.load(); // force browser to start fetching
     } else {
-        genObstacles(song, 60);
+        const mFile = MusicCache[song.id];
+        if (mFile) {
+            Sfx.loadMusic(mFile);
+            const profilePromise = Sfx.analyzeBeatProfile(mFile, song.bpm);
+            Sfx.aud.onloadedmetadata = () => {
+                const dur = Sfx.aud.duration || 60;
+                genObstacles(song, dur, seed);
+                Sfx.playMusic();
+                profilePromise.then(profile => {
+                    if (profile.length > 0 && state.gs === GS.COUNTDOWN) {
+                        song.beatProfile = profile;
+                        genObstacles(song, dur, seed);
+                    }
+                });
+            };
+            if (Sfx.aud.readyState >= 1) Sfx.aud.onloadedmetadata();
+        } else {
+            genObstacles(song, 60, seed);
+        }
     }
 
     const b0 = state.blocks[0] || { gy: LEVELS[3] };
@@ -209,3 +264,71 @@ window.hideSettings = hideSettings;
 window.setChar = setChar;
 window.detectBPMFromInput = detectBPMFromInput;
 window.adjBPM = adjBPM;
+window.retryGame = () => startPlay(state.curSong);
+
+// --- Multiplayer room UI ---
+
+export function showRoom() {
+    hide('ui-menu'); hide('ui-go');
+    show('ui-room');
+    document.getElementById('room-code').textContent = '';
+    document.getElementById('room-status').textContent = 'Conectando…';
+}
+
+export function openMultiplayer(song) {
+    state.curSong = song;
+    showRoom();
+    Net.connect();
+    Net.on('room_created', ({ code }) => {
+        state.roomCode = code;
+        document.getElementById('room-code').textContent = code;
+        document.getElementById('room-status').textContent = 'Esperando rival…';
+    });
+    Net.on('room_ready', ({ seed }) => {
+        document.getElementById('room-status').textContent = '¡Rival encontrado! Preparando…';
+        state.isOnline = true;
+        hide('ui-room');
+        startPlay({ ...song, seed });
+    });
+    Net.on('opponent_disconnected', () => {
+        alert('El rival se desconectó.');
+        state.isOnline = false; state.opponent = null;
+        showMenu();
+    });
+    Net.createRoom(song.id, state.pl.char);
+}
+
+window.showRoom = showRoom;
+window.openMultiplayer = openMultiplayer;
+
+window.joinRoomFromInput = () => {
+    const code = (document.getElementById('room-join-input')?.value || '').trim().toUpperCase();
+    if (code.length !== 4) return;
+    Net.connect();
+    // When joining, the server sends the songId from the host's room.
+    // We fetch the song profile from the server to get bpm/duration.
+    Net.on('room_ready', ({ seed, song }) => {
+        state.isOnline = true;
+        hide('ui-room');
+        const fetchMeta = SERVER
+            ? fetch(`${SERVER}/api/songs/${song.id}/profile`).then(r => r.ok ? r.json() : null).catch(() => null)
+            : Promise.resolve(null);
+        fetchMeta.then(meta => {
+            const songObj = { id: song.id, bpm: meta?.bpm || 120, duration: meta?.duration || 60, beatProfile: meta?.beatProfile, seed };
+            state.curSong = songObj;
+            startPlay(songObj);
+        });
+    });
+    Net.on('opponent_disconnected', () => {
+        alert('El rival se desconectó.');
+        state.isOnline = false; state.opponent = null;
+        showMenu();
+    });
+    document.getElementById('room-status').textContent = 'Uniéndose a sala ' + code + '…';
+    Net.joinRoom(code, state.pl.char);
+};
+
+window.cancelRoom = () => {
+    Net.disconnect();
+    showMenu();
+};

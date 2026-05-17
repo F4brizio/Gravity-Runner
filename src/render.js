@@ -259,6 +259,38 @@ function rPlayer() {
     }
 }
 
+const CHAR_MAP = { CUBE: drawCube, CAT: drawCat, FOX: drawFox, DRONE: drawDrone, GHOST: drawGhost, UFO: drawUFO, NINJA: drawNinja, SHARK: drawShark };
+
+function rOpponent() {
+    if (!state.opponent) return;
+    const { y, grav, sc } = state.opponent;
+    // Clamp to canvas bounds so the ghost never appears outside the play area
+    const clampedY = Math.max(0, Math.min(C.H - C.PS, y));
+    const drawFn = CHAR_MAP[state.pl.char] || drawFox;
+
+    cx.save();
+    cx.globalAlpha = 0.35;
+    cx.translate(C.PX + C.PS / 2, clampedY + C.PS / 2);
+    if (grav === 'UP') cx.scale(1, -1);
+    drawFn(cx, C.PS, 'RUN', 0);
+    cx.restore();
+    cx.globalAlpha = 1;
+
+    // Score badge — clamped so it never draws above the canvas
+    if (sc > 0) {
+        const badgeY = Math.max(18, clampedY);
+        cx.save();
+        cx.globalAlpha = 0.7;
+        cx.fillStyle = 'rgba(0,0,0,0.7)';
+        cx.fillRect(C.PX - 10, badgeY - 18, 52, 14);
+        cx.fillStyle = '#0cf';
+        cx.font = '10px monospace';
+        cx.textAlign = 'left';
+        cx.fillText('× ' + sc, C.PX - 6, badgeY - 7);
+        cx.restore();
+    }
+}
+
 function rVolToast() {
     if (state.volDisplayT <= 0) return;
     const alpha = Math.min(1, state.volDisplayT / 400);
@@ -444,7 +476,7 @@ export function render() {
     if (state.gs === GS.MENU) { cx.globalAlpha = .2; rBlocks(); cx.globalAlpha = 1; return; }
     rBlocks();
     rDarkness();
-    rParts(); rPlayer();
+    rParts(); rOpponent(); rPlayer();
     if (state.beatFlash > 0) { cx.fillStyle = `hsla(${state.curHue}, 80%, 80%, ${state.beatFlash * 0.6})`; cx.fillRect(0, 0, C.W, C.H); }
     if (state.flash > 0) { cx.fillStyle = `rgba(255,0,0,${state.flash})`; cx.fillRect(0, 0, C.W, C.H); }
     if (state.flashW > 0) {

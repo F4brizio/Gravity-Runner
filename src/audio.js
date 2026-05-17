@@ -1,5 +1,5 @@
 export const Sfx = {
-    ctx: null, ana: null, src: null, aud: null, fData: null,
+    ctx: null, ana: null, src: null, aud: null, fData: null, gain: null,
 
     init() {
         if (this.ctx) return;
@@ -11,8 +11,12 @@ export const Sfx = {
         this.aud = new Audio();
         this.aud.loop = false;
         this.src = this.ctx.createMediaElementSource(this.aud);
+        this.gain = this.ctx.createGain();
+        this.gain.gain.value = 1.0;
+        // Chain: src → ana (reads full signal) → gain (controls output) → destination
         this.src.connect(this.ana);
-        this.ana.connect(this.ctx.destination);
+        this.ana.connect(this.gain);
+        this.gain.connect(this.ctx.destination);
     },
 
     loadMusic(file) {
@@ -22,9 +26,18 @@ export const Sfx = {
 
     playMusic() {
         this.init();
-        this.aud.play().catch(e => {
+        const doPlay = () => this.aud.play().catch(e => {
             if (e.name !== 'AbortError') console.error('Error playing music:', e);
         });
+        if (this.ctx.state === 'suspended') {
+            this.ctx.resume().then(doPlay);
+        } else {
+            doPlay();
+        }
+    },
+
+    setVolume(v) {
+        if (this.gain) this.gain.gain.value = v;
     },
 
     stopMusic() {
