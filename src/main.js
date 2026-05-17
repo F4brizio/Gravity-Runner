@@ -91,6 +91,11 @@ function loop(now) {
         }
     }
 
+    // Smoothly interpolate ghost position between network updates (~10 Hz → 60 Hz visual)
+    if (state.opponent && state.opponent.targetY !== undefined) {
+        state.opponent.y += (state.opponent.targetY - state.opponent.y) * Math.min(1, dt * 0.025);
+    }
+
     render();
     updateHUD();
     requestAnimationFrame(loop);

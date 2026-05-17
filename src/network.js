@@ -17,7 +17,15 @@ function setupHandlers() {
     socket.on('room_error', ({ msg }) => alert('Error de sala: ' + msg));
 
     socket.on('opponent_update', ({ y, grav, sc }) => {
-        state.opponent = { y, grav, sc };
+        if (!state.opponent) {
+            // First update — initialize at exact position
+            state.opponent = { y, targetY: y, grav, sc };
+        } else {
+            // Subsequent updates — only move the target; lerp handles visual smoothing
+            state.opponent.targetY = y;
+            state.opponent.grav = grav;
+            state.opponent.sc = sc;
+        }
     });
 
     socket.on('game_over', data => {
@@ -40,9 +48,17 @@ export const Net = {
     get connected() { return !!socket?.connected; },
 
     connect() {
+        if (!SERVER) {
+            console.warn('[Net] No VITE_SERVER_URL configured — multiplayer disabled');
+            return;
+        }
         if (socket) return;
-        socket = io(SERVER, { transports: ['websocket'] });
-        setupHandlers();
+        try {
+            socket = io(SERVER, { transports: ['websocket'] });
+            setupHandlers();
+        } catch (e) {
+            console.error('[Net] Socket connection failed:', e);
+        }
     },
 
     disconnect() {

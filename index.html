@@ -165,6 +165,24 @@
             box-shadow: 0 0 10px #0c4
         }
 
+        .char-btn {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 4px;
+            padding: 8px 6px;
+        }
+
+        .char-btn canvas {
+            display: block;
+            image-rendering: pixelated;
+        }
+
+        .char-btn span {
+            font-size: 11px;
+            letter-spacing: 1px;
+        }
+
         .bd {
             border-color: #f33;
             color: #f33;
@@ -340,14 +358,14 @@
                 <div style="margin: 20px 0;">
                     <div style="font-size: 14px; opacity: 0.7; margin-bottom: 15px; letter-spacing: 1px;">ELEGIR PERSONAJE:</div>
                     <div style="display:grid; grid-template-columns: 1fr 1fr 1fr; gap:8px;">
-                        <button class="bp" id="btn-char-CUBE" onclick="setChar('CUBE')">CUBE</button>
-                        <button class="bp" id="btn-char-CAT" onclick="setChar('CAT')">GATO</button>
-                        <button class="bp" id="btn-char-FOX" onclick="setChar('FOX')">ZORRO</button>
-                        <button class="bp" id="btn-char-DRONE" onclick="setChar('DRONE')">DRON</button>
-                        <button class="bp" id="btn-char-GHOST" onclick="setChar('GHOST')">GHOST</button>
-                        <button class="bp" id="btn-char-UFO" onclick="setChar('UFO')">OVNI</button>
-                        <button class="bp" id="btn-char-NINJA" onclick="setChar('NINJA')">NINJA</button>
-                        <button class="bp" id="btn-char-SHARK" onclick="setChar('SHARK')">SHARK</button>
+                        <button class="bp char-btn" id="btn-char-CUBE" onclick="setChar('CUBE')"><canvas id="prev-CUBE" width="56" height="56"></canvas><span>CUBE</span></button>
+                        <button class="bp char-btn" id="btn-char-CAT"  onclick="setChar('CAT')"><canvas id="prev-CAT"  width="56" height="56"></canvas><span>GATO</span></button>
+                        <button class="bp char-btn" id="btn-char-FOX"  onclick="setChar('FOX')"><canvas id="prev-FOX"  width="56" height="56"></canvas><span>ZORRO</span></button>
+                        <button class="bp char-btn" id="btn-char-DRONE" onclick="setChar('DRONE')"><canvas id="prev-DRONE" width="56" height="56"></canvas><span>DRON</span></button>
+                        <button class="bp char-btn" id="btn-char-GHOST" onclick="setChar('GHOST')"><canvas id="prev-GHOST" width="56" height="56"></canvas><span>GHOST</span></button>
+                        <button class="bp char-btn" id="btn-char-UFO"  onclick="setChar('UFO')"><canvas id="prev-UFO"  width="56" height="56"></canvas><span>OVNI</span></button>
+                        <button class="bp char-btn" id="btn-char-NINJA" onclick="setChar('NINJA')"><canvas id="prev-NINJA" width="56" height="56"></canvas><span>NINJA</span></button>
+                        <button class="bp char-btn" id="btn-char-SHARK" onclick="setChar('SHARK')"><canvas id="prev-SHARK" width="56" height="56"></canvas><span>SHARK</span></button>
                     </div>
                 </div>
                 <button class="bl" style="width: 100%; margin-top: 10px;" onclick="hideSettings()">CERRAR</button>

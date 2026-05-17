@@ -6,13 +6,35 @@ import { resetKeys } from './input.js';
 import { genObstacles } from './obstacles.js';
 import { updateHUD, fmtTime } from './physics.js';
 import { Net } from './network.js';
+import { drawCube, drawCat, drawFox, drawDrone, drawGhost, drawUFO, drawNinja, drawShark } from './characters.js';
 
 const SERVER = import.meta.env.VITE_SERVER_URL || '';
 
 export function show(id) { const el = document.getElementById(id); if (el) el.classList.remove('hd'); }
 export function hide(id) { const el = document.getElementById(id); if (el) el.classList.add('hd'); }
 
+function renderAllSongs(el, localSongs, serverSongs) {
+    el.innerHTML = '';
+    const serverIds = new Set(serverSongs.map(s => s.id));
+
+    // Server songs first
+    serverSongs.forEach(s => renderSongRow(el, { ...s, _fromServer: true }, true));
+
+    // Local songs not already on server
+    localSongs.filter(s => !serverIds.has(s.id)).forEach(s => renderSongRow(el, s, false));
+
+    if (!serverSongs.length && !localSongs.length) {
+        el.innerHTML = '<div style="padding:15px;text-align:center;opacity:.5">No hay canciones. ¡Crea una!</div>';
+    }
+}
+
 export function showMenu() {
+    // Reset multiplayer state
+    state.isOnline = false;
+    state.opponent = null;
+    state.roomCode = null;
+    Net.disconnect();
+
     state.gs = GS.MENU;
     state.paused = false;
     state.blocks = [];
@@ -23,28 +45,20 @@ export function showMenu() {
     hide('ui-hud'); hide('ui-save'); hide('ui-go'); hide('ui-pause'); hide('ui-help'); hide('ui-room'); show('ui-menu');
 
     const el = document.getElementById('slist');
-    el.innerHTML = '<div style="padding:15px;text-align:center;opacity:.4;font-size:12px">Cargando…</div>';
-
-    // Build the song list: local songs + server songs (when online)
     const localSongs = SM.all();
-    const serverFetch = SERVER
-        ? fetch(`${SERVER}/api/songs`).then(r => r.ok ? r.json() : []).catch(() => [])
-        : Promise.resolve([]);
 
-    serverFetch.then(serverSongs => {
-        el.innerHTML = '';
+    // Show local songs immediately — no loading spinner
+    renderAllSongs(el, localSongs, []);
 
-        // Server songs (shown first, always have 1v1 enabled)
-        serverSongs.forEach(s => renderSongRow(el, { ...s, _fromServer: true }, true));
-
-        // Local songs (not already on the server)
-        const serverIds = new Set(serverSongs.map(s => s.id));
-        localSongs.filter(s => !serverIds.has(s.id)).forEach(s => renderSongRow(el, s, false));
-
-        if (!serverSongs.length && !localSongs.length) {
-            el.innerHTML = '<div style="padding:15px;text-align:center;opacity:.5">No hay canciones. ¡Crea una!</div>';
-        }
-    });
+    // Enrich with server songs async (2s timeout so local songs always stay visible)
+    if (SERVER) {
+        const timeout = new Promise(r => setTimeout(() => r([]), 2000));
+        const serverFetch = fetch(`${SERVER}/api/songs`)
+            .then(r => r.ok ? r.json() : []).catch(() => []);
+        Promise.race([serverFetch, timeout]).then(serverSongs => {
+            if (serverSongs.length > 0) renderAllSongs(el, localSongs, serverSongs);
+        });
+    }
 }
 
 function renderSongRow(el, s, isServer) {
@@ -67,12 +81,10 @@ function renderSongRow(el, s, isServer) {
         actions.style.gap = '5px';
         actions.style.justifyContent = 'flex-end';
 
-        if (!isServer) {
-            // Local song: normal play button
-            const bp = document.createElement('button'); bp.className = 'bp'; bp.textContent = '▶ JUGAR';
-            bp.style.padding = '5px 10px'; bp.onclick = () => startPlay(s);
-            actions.appendChild(bp);
-        }
+        // Play button — always present for all songs
+        const bp = document.createElement('button'); bp.className = 'bp'; bp.textContent = '▶ JUGAR';
+        bp.style.padding = '5px 10px'; bp.onclick = () => startPlay(s);
+        actions.appendChild(bp);
 
         const bm = document.createElement('button'); bm.className = 'bp'; bm.textContent = '⚡ 1v1';
         bm.style.padding = '5px 10px'; bm.style.borderColor = '#0cf'; bm.style.color = '#0cf';
@@ -127,24 +139,23 @@ export function startPlay(song) {
     document.getElementById('h-bpm').textContent = '♫ ' + song.bpm + ' BPM';
 
     const seed = song.seed || Date.now();
+    const useServerAudio = SERVER && song._fromServer && song.id;
 
-    if (state.isOnline && SERVER && song.id) {
-        // Online mode: stream from server
+    if (useServerAudio) {
+        // Stream from server (single player OR multiplayer — based on song origin, not isOnline)
         Sfx.init();
         if (Sfx.ctx && Sfx.ctx.state === 'suspended') Sfx.ctx.resume();
-        Sfx.aud.src = `${SERVER}/api/songs/${song.id}/stream`;
         Sfx.aud.crossOrigin = 'anonymous';
-        const startOnline = () => {
+        Sfx.aud.src = `${SERVER}/api/songs/${song.id}/stream`;
+        Sfx.aud.onloadedmetadata = () => {
             const dur = Sfx.aud.duration || song.duration || 60;
             genObstacles(song, dur, seed);
             Sfx.playMusic();
         };
-        Sfx.aud.onloadedmetadata = startOnline;
         Sfx.aud.onerror = () => {
-            // No audio — still generate obstacles so the game works
             genObstacles(song, song.duration || 60, seed);
         };
-        Sfx.aud.load(); // force browser to start fetching
+        Sfx.aud.load();
     } else {
         const mFile = MusicCache[song.id];
         if (mFile) {
@@ -201,17 +212,38 @@ export function setChar(c) {
     updateCharUI();
 }
 
+const CHAR_DRAW = { CUBE: drawCube, CAT: drawCat, FOX: drawFox, DRONE: drawDrone, GHOST: drawGhost, UFO: drawUFO, NINJA: drawNinja, SHARK: drawShark };
+const CHAR_LABELS = { CUBE: 'CUBE', CAT: 'GATO', FOX: 'ZORRO', DRONE: 'DRON', GHOST: 'GHOST', UFO: 'OVNI', NINJA: 'NINJA', SHARK: 'SHARK' };
+
 export function updateCharUI() {
-    const chars = ['CUBE', 'CAT', 'FOX', 'DRONE', 'GHOST', 'UFO', 'NINJA', 'SHARK'];
+    const chars = Object.keys(CHAR_DRAW);
     chars.forEach(c => {
-        const el = document.getElementById('btn-char-' + c);
-        if (el) {
-            if (state.pl.char === c) {
-                el.style.background = '#fff'; el.style.color = '#000'; el.style.boxShadow = '0 0 15px #fff';
-            } else {
-                el.style.background = 'transparent'; el.style.color = ''; el.style.boxShadow = 'none';
-            }
+        const btn = document.getElementById('btn-char-' + c);
+        if (!btn) return;
+
+        const selected = state.pl.char === c;
+        if (selected) {
+            btn.style.background = 'rgba(0,240,255,0.12)';
+            btn.style.borderColor = '#0cf';
+            btn.style.color = '#0cf';
+            btn.style.boxShadow = '0 0 14px #0cf8';
+        } else {
+            btn.style.background = 'transparent';
+            btn.style.borderColor = '';
+            btn.style.color = '';
+            btn.style.boxShadow = 'none';
         }
+
+        // Draw character preview on the mini canvas
+        const cv = document.getElementById('prev-' + c);
+        if (!cv) return;
+        const cx = cv.getContext('2d');
+        const s = 48; // draw size
+        cx.clearRect(0, 0, 56, 56);
+        cx.save();
+        cx.translate(28, 28);
+        CHAR_DRAW[c](cx, s, 'RUN', 0);
+        cx.restore();
     });
 }
 
