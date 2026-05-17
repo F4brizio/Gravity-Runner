@@ -8,8 +8,11 @@ export const Sfx = {
         this.ana.fftSize = 512;
         this.ana.smoothingTimeConstant = 0.8;
         this.fData = new Uint8Array(this.ana.frequencyBinCount);
+        this.gain = this.ctx.createGain();
+        this.gain.gain.value = 0.2;
         this.aud = new Audio();
         this.aud.loop = false;
+        // Signal chain: src → ana (reads raw signal) → gain (volume control) → speakers
         this.src = this.ctx.createMediaElementSource(this.aud);
         this.gain = this.ctx.createGain();
         this.gain.gain.value = 1.0;
@@ -24,7 +27,7 @@ export const Sfx = {
         this.aud.src = URL.createObjectURL(file);
     },
 
-    playMusic() {
+    playMusic(volume = 0.2) {
         this.init();
         const doPlay = () => this.aud.play().catch(e => {
             if (e.name !== 'AbortError') console.error('Error playing music:', e);
@@ -34,6 +37,10 @@ export const Sfx = {
         } else {
             doPlay();
         }
+    },
+
+    setVolume(v) {
+        if (this.gain) this.gain.gain.value = v;
     },
 
     setVolume(v) {
