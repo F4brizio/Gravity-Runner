@@ -195,6 +195,10 @@ export function togglePause() {
     }
 }
 
+export function retryGame() {
+    if (state.curSong) startPlay(state.curSong);
+}
+
 export function setChar(c) {
     state.pl.char = c;
     localStorage.setItem('gr_char', c);
@@ -202,22 +206,22 @@ export function setChar(c) {
 }
 
 export function updateCharUI() {
-    const chars = ['CUBE', 'CAT', 'FOX', 'DRONE', 'GHOST', 'UFO', 'NINJA', 'SHARK'];
-    chars.forEach(c => {
-        const el = document.getElementById('btn-char-' + c);
-        if (el) {
-            if (state.pl.char === c) {
-                el.style.background = '#fff'; el.style.color = '#000'; el.style.boxShadow = '0 0 15px #fff';
-            } else {
-                el.style.background = 'transparent'; el.style.color = ''; el.style.boxShadow = 'none';
-            }
-        }
-    });
+    updateActivePreview(state.pl.char);
+}
+
+export function showSettings() {
+    show('ui-settings');
+    applyFullscreen(_fsEnabled); // sync button state
+    if (!_previewsInited) {
+        initCharPreviews(state.pl.char);
+        _previewsInited = true;
+    } else {
+        updateActivePreview(state.pl.char);
+    }
 }
 
 export function showHelp() { show('ui-help'); }
 export function hideHelp() { hide('ui-help'); }
-export function showSettings() { updateCharUI(); show('ui-settings'); }
 export function hideSettings() { hide('ui-settings'); }
 
 export async function detectBPMFromInput(input) {
@@ -250,6 +254,41 @@ function resetGame() {
     state.dynamicGap = C.GAP;
     state.lastTier = 0; state.tierMsg = { text: '', sub: '', t: 0, tier: 0 };
 }
+
+// ─── Fullscreen mode ─────────────────────────────────────────────────────────
+let _fsEnabled = localStorage.getItem('gr_fullscreen') === '1';
+
+function applyFullscreen(enabled) {
+    const gc = document.getElementById('gc');
+    if (!gc) return;
+    if (enabled) {
+        const scale = Math.min(window.innerWidth / 900, window.innerHeight / 500);
+        gc.style.transform = `scale(${scale})`;
+        document.body.classList.add('fs-mode');
+    } else {
+        gc.style.transform = '';
+        document.body.classList.remove('fs-mode');
+    }
+    const btn = document.getElementById('btn-fullscreen');
+    if (btn) {
+        btn.textContent = enabled ? 'ON' : 'OFF';
+        btn.style.borderColor = enabled ? '#0cf' : '';
+        btn.style.color = enabled ? '#0cf' : '';
+        btn.style.boxShadow = enabled ? '0 0 10px #0cf' : '';
+    }
+}
+
+export function toggleFullscreenMode() {
+    _fsEnabled = !_fsEnabled;
+    localStorage.setItem('gr_fullscreen', _fsEnabled ? '1' : '0');
+    applyFullscreen(_fsEnabled);
+}
+
+// Apply on load
+applyFullscreen(_fsEnabled);
+
+// Re-apply on window resize while in fs mode
+window.addEventListener('resize', () => { if (_fsEnabled) applyFullscreen(true); });
 
 // Expose to HTML onclick handlers
 window.showMenu = showMenu;

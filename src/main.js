@@ -15,6 +15,10 @@ for (let i = 0; i < 50; i++) {
 // Load saved character
 state.pl.char = localStorage.getItem('gr_char') || 'FOX';
 
+// Load saved volume (default 0.2)
+const _savedVol = parseFloat(localStorage.getItem('gr_volume'));
+state.volume = isNaN(_savedVol) ? 0.2 : _savedVol;
+
 // Input
 setupInput({ onPause: togglePause });
 
